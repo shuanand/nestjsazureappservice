@@ -8,6 +8,13 @@ on:
     branches:
       - main
   workflow_dispatch:
+  
+env:
+    AZURE_WEBAPP_NAME: nestjsazureappservice # set this to your application's name
+    AZURE_WEBAPP_PACKAGE_PATH: './package.json ./tsconfig.json  ./nest-cli.json tsconfig.build.json ./dist ./node_modules'            # set this to the path to your web app project, defaults to the repository root
+    AZURE_WEBAPP_ROOT_PATH: '.'            # set this to the path to your web app project, defaults to the repository root
+    NODE_VERSION: '16.x'                            # set this to the node version to use
+    ZIP_PACKAGE_NAME: "app-release.zip"
 
 jobs:
   build:
@@ -25,13 +32,16 @@ jobs:
         run: |
           npm install
           npm run build --if-present
-          npm run test --if-present
-
+          #npm run test --if-present
+      - name: Zip artifact to upload
+        run: zip -r ${{ env.ZIP_PACKAGE_NAME }} ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v2
         with:
-          name: node-app
-          path: .
+          name: ${{ env.AZURE_WEBAPP_NAME }}
+          path: ${{ env.AZURE_WEBAPP_ROOT_PATH }}/${{ env.ZIP_PACKAGE_NAME }}
+          retention-days: 1
 
   deploy:
     runs-on: ubuntu-latest
@@ -44,7 +54,7 @@ jobs:
       - name: Download artifact from build job
         uses: actions/download-artifact@v2
         with:
-          name: node-app
+          name: ${{ env.AZURE_WEBAPP_NAME }}
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
@@ -52,5 +62,5 @@ jobs:
         with:
           app-name: 'nextdeployment'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_1D69B921A90243C59E861A0A3A704E10 }}
-          package: .
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_DCC6F3AC6C9C4E0991C69081085DA4ED }}
+          package: ${{ env.AZURE_WEBAPP_ROOT_PATH }}/${{ env.ZIP_PACKAGE_NAME }}
